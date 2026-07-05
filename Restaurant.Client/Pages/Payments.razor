@@ -1,0 +1,143 @@
+@page "/payments"
+@attribute [Authorize(Roles = "Admin")]
+
+<div class="container-fluid p-4" style="background-color: #E0E0E0; min-height: 100vh;">
+    
+    <div class="row align-items-center mb-4 g-3">
+        <div class="col-md-4">
+            <h3 class="font-weight-bold text-dark m-0">Payments</h3>
+        </div>
+        
+        <div class="col-md-4 ms-auto">
+            <div class="input-group shadow-sm" style="border-radius: 4px; overflow: hidden;">
+                <span class="input-group-text border-0 bg-white text-muted"><span class="oi oi-magnifying-glass"></span></span>
+                <input type="text" class="form-control border-0 p-2 text-dark bg-white" placeholder="Search Payments..." @bind-value="searchQuery" @bind-value:event="oninput" />
+            </div>
+        </div>
+
+        <div class="col-md-2">
+            <select class="form-select border-0 p-2 shadow-sm bg-white text-dark" @bind="selectedMethodFilter" style="border-radius: 4px; font-size: 0.9rem;">
+                <option value="All">Filter: All</option>
+                <option value="Credit Card">Credit Card</option>
+                <option value="Cash">Cash</option>
+                <option value="Gcash">Gcash</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2 mb-4">
+        <button class="btn font-weight-bold btn-sm px-3 py-2 shadow-sm @(currentStatusFilter == "All" ? "btn-dark text-white" : "btn-light text-dark")" 
+                @onclick='() => SetStatusFilter("All")' style="border-radius: 4px;">
+            All (@transactions.Count)
+        </button>
+        <button class="btn font-weight-bold btn-sm px-3 py-2 text-white shadow-sm @(currentStatusFilter == "Paid" ? "btn-success" : "")" 
+                @onclick='() => SetStatusFilter("Paid")' style="background-color: #28A745; border: 0; border-radius: 4px;">
+            <span class="oi oi-credit-card me-1" aria-hidden="true"></span> Paid (@transactions.Count(t => t.Status == "Paid"))
+        </button>
+    </div>
+
+    <div class="card border-0 p-4 shadow-sm" style="background-color: #D2D2D2; border-radius: 4px;">
+        <div class="table-responsive">
+            <table class="table align-middle m-0" style="border-collapse: collapse;">
+                <thead>
+                    <tr class="border-bottom border-secondary text-dark pb-3">
+                        <th class="p-3 font-weight-bold">Transaction #</th>
+                        <th class="p-3 font-weight-bold">OrderID</th>
+                        <th class="p-3 font-weight-bold">Customer</th>
+                        <th class="p-3 font-weight-bold">Payment Method</th>
+                        <th class="p-3 font-weight-bold">Total</th>
+                        <th class="p-3 font-weight-bold">Status</th>
+                        <th class="p-3 font-weight-bold text-center" style="width: 130px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var txn in GetFilteredTransactions())
+                    {
+                        <tr class="border-bottom border-secondary pb-3">
+                            <td class="p-3 font-weight-bold text-dark">#@txn.TransactionId</td>
+                            
+                            <td class="p-3 font-weight-bold text-secondary">#@txn.OrderId</td>
+                            
+                            <td class="p-3 font-weight-bold text-dark">@txn.CustomerName</td>
+                            
+                            <td class="p-3 text-dark font-weight-bold">
+                                <span class="oi oi-credit-card me-2 text-muted" aria-hidden="true"></span>@txn.PaymentMethod
+                            </td>
+                            
+                            <td class="p-3 font-weight-bold text-dark">$@txn.TotalAmount</td>
+                            
+                            <td class="p-3">
+                                <span class="badge text-white font-weight-bold bg-success" style="border-radius: 4px; padding: 6px 12px; font-size: 0.75rem;">
+                                    @txn.Status
+                                </span>
+                            </td>
+                            
+                            <td class="p-3 text-center">
+                                <button class="btn btn-sm btn-info text-white font-weight-bold px-3 py-1 d-flex align-items-center gap-1 mx-auto" 
+                                        @onclick="() => ViewTransactionDetails(txn.TransactionId)" style="background-color: #00B4D8; border: 0; border-radius: 4px;">
+                                    <span class="oi oi-eye" aria-hidden="true"></span> View
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string searchQuery = "";
+    private string selectedMethodFilter = "All";
+    private string currentStatusFilter = "All";
+
+    private void SetStatusFilter(string filter) => currentStatusFilter = filter;
+
+    private IEnumerable<TransactionItem> GetFilteredTransactions()
+    {
+        var filtered = transactions.AsEnumerable();
+
+        // 1. Status Filter (All vs Paid)
+        if (currentStatusFilter != "All")
+        {
+            filtered = filtered.Where(t => t.Status.Equals(currentStatusFilter, StringComparison.OrdinalIgnoreCase));
+        }
+
+        // 2. Dropdown Payment Method Filter
+        if (selectedMethodFilter != "All")
+        {
+            filtered = filtered.Where(t => t.PaymentMethod.Equals(selectedMethodFilter, StringComparison.OrdinalIgnoreCase));
+        }
+
+        // 3. Search Bar Input Parser
+        if (!string.IsNullOrWhiteSpace(searchQuery))
+        {
+            filtered = filtered.Where(t => t.CustomerName.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) || 
+                                           t.TransactionId.ToString().Contains(searchQuery));
+        }
+
+        return filtered;
+    }
+
+    private void ViewTransactionDetails(int transactionId)
+    {
+        // View action placeholder logic (e.g., popup receipt modal or redirect)
+    }
+
+    // 🟢 Initialized exact data layout matching your reference list items (Basser Bantas, Lyka Pactor)
+    private List<TransactionItem> transactions = new()
+    {
+        new TransactionItem { TransactionId = 202, OrderId = 1, CustomerName = "Basser Bantas", PaymentMethod = "Credit Card", TotalAmount = 1, Status = "Paid" },
+        new TransactionItem { TransactionId = 203, OrderId = 2, CustomerName = "Lyka Pactor", PaymentMethod = "Credit Card", TotalAmount = 1, Status = "Paid" }
+    };
+
+    public class TransactionItem
+    {
+        public int TransactionId { get; set; }
+        public int OrderId { get; set; }
+        public string CustomerName { get; set; } = string.Empty;
+        public string PaymentMethod { get; set; } = string.Empty;
+        public decimal TotalAmount { get; set; }
+        public string Status { get; set; } = "Paid";
+    }
+}

@@ -1,0 +1,202 @@
+@page "/inventory"
+@attribute [Authorize(Roles = "Admin")]
+
+<div class="container-fluid p-4" style="background-color: #E0E0E0; min-height: 100vh;">
+    
+    <h3 class="font-weight-bold text-dark mb-4">Inventory Management</h3>
+
+    <div class="row g-3 align-items-center mb-4">
+        <div class="col-md-4 d-flex gap-2">
+            <button class="btn btn-dark font-weight-bold px-3 py-2 d-flex align-items-center gap-1 shadow-sm text-uppercase" @onclick="OpenAddModal" style="border-radius: 4px; letter-spacing: 0.5px;">
+                <span class="oi oi-plus" aria-hidden="true"></span> Add Items
+            </button>
+            <button class="btn font-weight-bold px-3 py-2 d-flex align-items-center gap-1 shadow-sm text-uppercase @(isRestockFilterActive ? "btn-danger" : "btn-warning text-dark")" 
+                    @onclick="ToggleRestockFilter" style="border-radius: 4px; letter-spacing: 0.5px;">
+                <span class="oi oi-warning" aria-hidden="true"></span> @(isRestockFilterActive ? "Show All Items" : "Restock Alerts")
+            </button>
+        </div>
+
+        <div class="col-md-4">
+            <div class="input-group shadow-sm" style="border-radius: 4px; overflow: hidden;">
+                <span class="input-group-text border-0 bg-white text-muted"><span class="oi oi-magnifying-glass"></span></span>
+                <input type="text" class="form-control border-0 p-2 text-dark bg-white" placeholder="Search item..." @bind-value="searchQuery" @bind-value:event="oninput" />
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <select class="form-select border-0 p-2 shadow-sm bg-white text-dark" @bind="selectedCategoryFilter" style="border-radius: 4px;">
+                <option value="All">Filter: All Category</option>
+                <option value="Spices">Spices</option>
+                <option value="Seasoning">Seasoning</option>
+                <option value="Meat">Meat</option>
+                <option value="Vegetables">Vegetables</option>
+                <option value="Fruits">Fruits</option>
+                <option value="Drinks">Drinks</option>
+                <option value="Noodles">Noodles</option>
+                <option value="Pork">Pork</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="card border-0 p-4 shadow-sm" style="background-color: #D2D2D2; border-radius: 4px;">
+        <div class="table-responsive">
+            <table class="table align-middle m-0" style="border-collapse: collapse;">
+                <thead>
+                    <tr class="border-bottom border-secondary pb-3">
+                        <th class="p-3 font-weight-bold text-dark">Item Name</th>
+                        <th class="p-3 font-weight-bold text-dark">Category</th>
+                        <th class="p-3 font-weight-bold text-dark">Stock Amount</th>
+                        <th class="p-3 font-weight-bold text-dark">Status</th>
+                        <th class="p-3 font-weight-bold text-dark text-center" style="width: 180px;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in GetFilteredInventory())
+                    {
+                        <tr class="border-bottom border-secondary pb-3">
+                            <td class="p-3 font-weight-bold text-dark" style="font-size: 1.1rem;">@item.Name</td>
+                            <td class="p-3 text-dark font-weight-bold">@item.Category</td>
+                            <td class="p-3 text-dark font-weight-bold" style="font-size: 1.05rem;">
+                                @item.StockAmount @item.Unit
+                            </td>
+                            <td class="p-3">
+                                @if (item.StockAmount == 0 || !item.IsAvailable)
+                                {
+                                    <span class="badge text-white font-weight-bold bg-danger" style="border-radius: 4px; padding: 6px 12px;">Out of stock</span>
+                                }
+                                else if (item.StockAmount > 0 && item.StockAmount < 20)
+                                {
+                                    <span class="badge text-dark font-weight-bold bg-warning" style="border-radius: 4px; padding: 6px 12px;">Add Stock</span>
+                                }
+                                else
+                                {
+                                    <span class="badge text-white font-weight-bold bg-success" style="border-radius: 4px; padding: 6px 12px;">In Stock</span>
+                                }
+                            </td>
+                            <td class="p-3 text-center">
+                                <div class="d-flex justify-content-center gap-2">
+                                    <button class="btn btn-sm btn-info text-white font-weight-bold px-2 py-1" @onclick="() => OpenEditModal(item)" style="background-color: #00B4D8; border: 0; border-radius: 4px;">
+                                        <span class="oi oi-pencil" aria-hidden="true"></span> Edit
+                                    </button>
+                                    <button class="btn btn-sm btn-danger font-weight-bold px-2 py-1" @onclick="() => DeleteInventoryItem(item.Id)" style="background-color: #DC3545; border: 0; border-radius: 4px;">
+                                        <span class="oi oi-trash" aria-hidden="true"></span> Delete
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<InventoryItemModal IsOpen="isModalOpen"
+                    OnClose="() => isModalOpen = false"
+                    EditingItem="selectedItem"
+                    OnSave="HandleSaveInventoryItem" />
+
+@code {
+    private string searchQuery = "";
+    private string selectedCategoryFilter = "All";
+    private bool isRestockFilterActive = false;
+    private bool isModalOpen = false;
+    private InventoryItem? selectedItem = null;
+
+    private void ToggleRestockFilter() => isRestockFilterActive = !isRestockFilterActive;
+
+    private IEnumerable<InventoryItem> GetFilteredInventory()
+    {
+        var filtered = inventoryItems.AsEnumerable();
+
+        // 1. Restock Alerts shortcut filtering mapping
+        if (isRestockFilterActive)
+        {
+            filtered = filtered.Where(i => i.StockAmount == 0 || !i.IsAvailable);
+        }
+
+        // 2. Dropdown category filter matching
+        if (selectedCategoryFilter != "All")
+        {
+            filtered = filtered.Where(i => i.Category == selectedCategoryFilter);
+        }
+
+        // 3. Text parsing queries matches
+        if (!string.IsNullOrWhiteSpace(searchQuery))
+        {
+            filtered = filtered.Where(i => i.Name.Contains(searchQuery, StringComparison.OrdinalIgnoreCase));
+        }
+
+        return filtered;
+    }
+
+    private void OpenAddModal()
+    {
+        selectedItem = null;
+        isModalOpen = true;
+    }
+
+    private void OpenEditModal(InventoryItem item)
+    {
+        selectedItem = item;
+        isModalOpen = true;
+    }
+
+    private void HandleSaveInventoryItem(InventoryItem savedItem)
+    {
+        if (selectedItem == null)
+        {
+            // CREATE FLOW
+            savedItem.Id = inventoryItems.Any() ? inventoryItems.Max(i => i.Id) + 1 : 1;
+            inventoryItems.Add(savedItem);
+        }
+        else
+        {
+            // UPDATE FLOW
+            var index = inventoryItems.FindIndex(i => i.Id == selectedItem.Id);
+            if (index != -1)
+            {
+                inventoryItems[index].Name = savedItem.Name;
+                inventoryItems[index].Category = savedItem.Category;
+                inventoryItems[index].StockAmount = savedItem.StockAmount;
+                inventoryItems[index].Unit = savedItem.Unit;
+                inventoryItems[index].IsAvailable = savedItem.IsAvailable;
+            }
+        }
+        isModalOpen = false;
+    }
+
+    private void DeleteInventoryItem(int id)
+    {
+        var item = inventoryItems.FirstOrDefault(i => i.Id == id);
+        if (item != null) inventoryItems.Remove(item);
+    }
+
+    private List<InventoryItem> inventoryItems = new()
+    {
+        new InventoryItem { Id = 1, Name = "Afritada", Category = "Pork", StockAmount = 150, Unit = "kg", IsAvailable = true },
+        new InventoryItem { Id = 2, Name = "Bihon", Category = "Noodles", StockAmount = 120, Unit = "kg", IsAvailable = true },
+        new InventoryItem { Id = 3, Name = "Canton", Category = "Noodles", StockAmount = 0, Unit = "kg", IsAvailable = false }
+    };
+
+    // Shared internal object mapping schemas
+    public class InventoryItem
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Category { get; set; } = string.Empty;
+        public decimal StockAmount { get; set; }
+        public string Unit { get; set; } = "kg";
+        public bool IsAvailable { get; set; } = true;
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
+    }
+
+    public class FormItemModel
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Category { get; set; } = "Spices";
+        public decimal StockAmount { get; set; } = 0;
+        public string Unit { get; set; } = "kg";
+        public string IsAvailableString { get; set; } = "true";
+    }
+}

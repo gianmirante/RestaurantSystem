@@ -1,0 +1,73 @@
+@page "/"
+@layout AuthLayout
+@inject HttpClient Http
+@inject ILocalStorageService LocalStorage
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+
+@* 🟢 REMOVED 'bg-light' so it naturally displays the background color from MainLayout.razor.css *@
+<div class="d-flex justify-content-center align-items-center vh-100 w-100">
+    @* 🟢 CHANGED: Set background-color to #D2D2D2 and flat corner radius to match your mockup design *@
+    <div class="card border-0 p-4 shadow-sm" style="width: 420px; max-width: 90%; background-color: #D2D2D2; border-radius: 4px;">
+        <div class="card-body">
+            <h3 class="card-title text-center text-dark font-weight-bold mb-4">Restaurant Login</h3>
+            
+            <EditForm Model="@loginModel" OnValidSubmit="HandleLogin">
+                <div class="form-group mb-3">
+                    <label class="form-label text-dark font-weight-bold small text-uppercase">Username</label>
+                    <InputText @bind-Value="loginModel.Username" class="form-control border-0 p-3 shadow-sm bg-white" placeholder="Enter username" style="border-radius: 4px;" />
+                </div>
+                
+                <div class="form-group mb-4">
+                    <label class="form-label text-dark font-weight-bold small text-uppercase">Password</label>
+                    <InputText type="password" @bind-Value="loginModel.Password" class="form-control border-0 p-3 shadow-sm bg-white" placeholder="Enter password" style="border-radius: 4px;" />
+                </div>
+
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <div class="alert alert-danger py-2 mb-3 text-center small border-0 font-weight-bold" style="border-radius: 4px;">
+                        @errorMessage
+                    </div>
+                }
+
+                @* 🟢 CHANGED: Swapped 'btn-primary' to 'btn-dark' with flat layout corners *@
+                <button type="submit" class="btn btn-dark w-100 py-3 font-weight-bold text-uppercase border-0 shadow-sm mt-2" style="border-radius: 4px; letter-spacing: 0.5px;">
+                    Sign In
+                </button>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    private UserLoginDto loginModel = new();
+    private string errorMessage = "";
+
+    private async Task HandleLogin()
+    {
+        errorMessage = "";
+        var response = await Http.PostAsJsonAsync("api/auth/login", loginModel);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var token = await response.Content.ReadAsStringAsync();
+            await LocalStorage.SetItemAsync("authToken", token);
+            
+            // Notify Blazor that auth state changed
+            await AuthStateProvider.GetAuthenticationStateAsync();
+            
+            // Redirect to Home Page
+            Navigation.NavigateTo("/home");
+        }
+        else
+        {
+            errorMessage = "Invalid login credentials.";
+        }
+    }
+
+    public class UserLoginDto 
+    { 
+        public string Username { get; set; } = string.Empty; 
+        public string Password { get; set; } = string.Empty; 
+    }
+}

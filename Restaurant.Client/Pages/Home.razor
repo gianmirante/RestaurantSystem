@@ -1,0 +1,14 @@
+﻿@page "/home"
+@attribute [Authorize]
+
+<AuthorizeView Roles="Admin">
+    <Authorized>
+        <AdminDashboard />
+    </Authorized>
+</AuthorizeView>
+
+<AuthorizeView Roles="KitchenStaff">
+    <Authorized>
+        <KitchenDashboard />
+    </Authorized>
+</AuthorizeView>

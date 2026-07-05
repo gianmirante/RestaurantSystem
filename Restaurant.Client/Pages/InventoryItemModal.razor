@@ -1,0 +1,120 @@
+@if (IsOpen)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0, 0, 0, 0.5); overflow-y: auto;">
+        <div class="modal-dialog modal-dialog-centered modal-md">
+            <div class="modal-content border-0 p-3 shadow" style="background-color: #E0E0E0; border-radius: 4px;">
+                
+                <div class="modal-header border-bottom border-secondary d-flex justify-content-between align-items-center pb-2">
+                    <h5 class="modal-title font-weight-bold text-dark">
+                        @(EditingItem == null ? "Add Inventory Stock Item" : $"Edit Item: {EditingItem.Name}")
+                    </h5>
+                    <button type="button" class="btn-close border-0 bg-transparent text-dark h4 m-0 p-0" @onclick="CloseModal">×</button>
+                </div>
+
+                <div class="modal-body py-3">
+                    <EditForm Model="@formModel" OnValidSubmit="HandleValidSubmit">
+                        <div class="row g-3">
+                            <div class="col-12 mb-2">
+                                <label class="form-label font-weight-bold text-dark small text-uppercase">Item Name</label>
+                                <InputText @bind-Value="formModel.Name" class="form-control border-0 p-3 shadow-sm bg-white" placeholder="e.g., Soy Sauce, Garlic Powder" style="border-radius: 4px;" required />
+                            </div>
+
+                            <div class="col-12 mb-2">
+                                <label class="form-label font-weight-bold text-dark small text-uppercase">Category</label>
+                                <InputSelect @bind-Value="formModel.Category" class="form-select border-0 p-3 shadow-sm bg-white" style="border-radius: 4px;">
+                                    <option value="Spices">Spices</option>
+                                    <option value="Seasoning">Seasoning</option>
+                                    <option value="Meat">Meat</option>
+                                    <option value="Vegetables">Vegetables</option>
+                                    <option value="Fruits">Fruits</option>
+                                    <option value="Drinks">Drinks</option>
+                                </InputSelect>
+                            </div>
+
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label font-weight-bold text-dark small text-uppercase">Stock Amount</label>
+                                <InputNumber @bind-Value="formModel.StockAmount" class="form-control border-0 p-3 shadow-sm bg-white" style="border-radius: 4px;" required />
+                            </div>
+
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label font-weight-bold text-dark small text-uppercase">Measurement Unit</label>
+                                <InputSelect @bind-Value="formModel.Unit" class="form-select border-0 p-3 shadow-sm bg-white" style="border-radius: 4px;">
+                                    <option value="kg">kg (Kilograms)</option>
+                                    <option value="lb">lb (Pounds)</option>
+                                    <option value="g">g (Grams)</option>
+                                    <option value="L">L (Liters)</option>
+                                </InputSelect>
+                            </div>
+
+                            <div class="col-12 mb-2">
+                                <label class="form-label font-weight-bold text-dark small text-uppercase">Stock Status</label>
+                                <InputSelect @bind-Value="formModel.IsAvailableString" class="form-select border-0 p-3 shadow-sm bg-white" style="border-radius: 4px;">
+                                    <option value="true">Active / Available</option>
+                                    <option value="false">Disabled / Discontinued</option>
+                                </InputSelect>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-end gap-2 border-top border-secondary pt-3 mt-4">
+                            <button type="button" class="btn btn-outline-dark font-weight-bold px-4" @onclick="CloseModal" style="border-radius: 4px;">Cancel</button>
+                            <button type="submit" class="btn btn-dark font-weight-bold text-uppercase px-4 shadow-sm" style="border-radius: 4px; letter-spacing: 0.5px;">
+                                @(EditingItem == null ? "Create Item" : "Save Changes")
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public Pages.Inventory.InventoryItem? EditingItem { get; set; }
+    [Parameter] public EventCallback<Pages.Inventory.InventoryItem> OnSave { get; set; }
+
+    private Pages.Inventory.FormItemModel formModel = new();
+
+    protected override void OnParametersSet()
+    {
+        if (IsOpen)
+        {
+            if (EditingItem == null)
+            {
+                // ADD FRESH OPERATION SETUP
+                formModel = new Pages.Inventory.FormItemModel { Category = "Spices", Unit = "kg", IsAvailableString = "true" };
+            }
+            else
+            {
+                // EDIT EXISTING ITEM FLOW Preloads
+                formModel = new Pages.Inventory.FormItemModel
+                {
+                    Name = EditingItem.Name,
+                    Category = EditingItem.Category,
+                    StockAmount = EditingItem.StockAmount,
+                    Unit = EditingItem.Unit,
+                    IsAvailableString = EditingItem.IsAvailable.ToString().ToLower()
+                };
+            }
+        }
+    }
+
+    private async Task CloseModal() => await OnClose.InvokeAsync();
+
+    private async Task HandleValidSubmit()
+    {
+        var item = new Pages.Inventory.InventoryItem
+        {
+            Name = formModel.Name,
+            Category = formModel.Category,
+            StockAmount = formModel.StockAmount,
+            Unit = formModel.Unit,
+            IsAvailable = bool.Parse(formModel.IsAvailableString),
+            CreatedAt = EditingItem?.CreatedAt ?? DateTime.Now  
+        };
+
+        await OnSave.InvokeAsync(item);
+    }
+}

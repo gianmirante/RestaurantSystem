@@ -1,0 +1,176 @@
+@if (IsOpen)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0, 0, 0, 0.5); overflow-y: auto;">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 p-3 shadow" style="background-color: #E0E0E0; border-radius: 4px;">
+                
+                <div class="modal-header border-bottom border-secondary d-flex justify-content-between align-items-center pb-2">
+                    <h5 class="modal-title font-weight-bold text-dark">
+                        @(EditingProduct == null ? "Create New Product with Recipe" : $"Modify Product: {EditingProduct.Name}")
+                    </h5>
+                    <button type="button" class="btn-close border-0 bg-transparent text-dark h4 m-0 p-0" @onclick="CloseModal">×</button>
+                </div>
+
+                <div class="modal-body py-3">
+                    <EditForm Model="@newProduct" OnValidSubmit="HandleValidSubmit">
+                        <div class="row g-3">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label font-weight-bold text-dark small text-uppercase">Product Name</label>
+                                <InputText @bind-Value="newProduct.Name" class="form-control border-0 p-3 shadow-sm bg-white" placeholder="e.g., Special Bihon" style="border-radius: 4px;" required />
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label font-weight-bold text-dark small text-uppercase">Price ($)</label>
+                                <InputNumber @bind-Value="newProduct.Price" class="form-control border-0 p-3 shadow-sm bg-white" style="border-radius: 4px;" required />
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label font-weight-bold text-dark small text-uppercase">Category Description</label>
+                                <InputSelect @bind-Value="newProduct.Description" class="form-select border-0 p-3 shadow-sm bg-white" style="border-radius: 4px;">
+                                    <option value="Noodles">Noodles</option>
+                                    <option value="Pork">Pork</option>
+                                    <option value="Beef">Beef</option>
+                                    <option value="Chicken">Chicken</option>
+                                    <option value="Beverages">Beverages</option>
+                                </InputSelect>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label font-weight-bold text-dark small text-uppercase">Initial Status</label>
+                                <InputSelect @bind-Value="newProduct.IsAvailableString" class="form-select border-0 p-3 shadow-sm bg-white" style="border-radius: 4px;">
+                                    <option value="true">Available</option>
+                                    <option value="false">Unavailable</option>
+                                </InputSelect>
+                            </div>
+
+                            <div class="col-12 mb-3">
+                                <label class="form-label font-weight-bold text-dark small text-uppercase d-block mb-2">Select Ingredients From Inventory</label>
+                                <div class="p-3 rounded shadow-sm border border-secondary" style="background-color: #D2D2D2; border-radius: 4px;">
+                                    <div class="d-flex gap-2 mb-3">
+                                        <select class="form-select border-0 shadow-sm bg-white" @bind="selectedInventoryId" style="border-radius: 4px;">
+                                            <option value="0">-- Choose ingredient to link --</option>
+                                            @foreach (var inv in InventoryList)
+                                            {
+                                                <option value="@inv.Id">@inv.Name (Stock: @inv.StockCount)</option>
+                                            }
+                                        </select>
+                                        <button type="button" class="btn btn-dark font-weight-bold" @onclick="AddIngredientFromDropdown" style="border-radius: 4px; white-space: nowrap;">Link Item</button>
+                                    </div>
+
+                                    <div style="max-height: 150px; overflow-y: auto;">
+                                        @if (!recipeIngredients.Any())
+                                        {
+                                            <p class="text-muted small m-0 italic">No ingredients linked to this product recipe yet.</p>
+                                        }
+                                        else
+                                        {
+                                            <div class="d-flex flex-column gap-2">
+                                                @foreach (var ing in recipeIngredients)
+                                                {
+                                                    <div class="d-flex align-items-center justify-content-between bg-white p-2 rounded shadow-sm" style="border-radius: 4px;">
+                                                        <div class="form-check d-flex align-items-center gap-2 m-0">
+                                                            <input type="checkbox" id="modal-ing-@ing.Id" class="form-check-input border-dark m-0" @bind="ing.IsActiveInRecipe" style="cursor: pointer;" />
+                                                            <label class="form-check-label text-dark font-weight-bold small m-0 @(ing.IsActiveInRecipe ? "" : "text-decoration-line-through text-muted")" for="modal-ing-@ing.Id" style="cursor: pointer;">@ing.Name</label>
+                                                        </div>
+                                                        <span class="badge bg-secondary text-white font-weight-bold" style="border-radius: 4px;">Included</span>
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-end gap-2 border-top border-secondary pt-3 mt-3">
+                            <button type="button" class="btn btn-outline-dark font-weight-bold px-4" @onclick="CloseModal" style="border-radius: 4px;">Cancel</button>
+                            <button type="submit" class="btn btn-dark font-weight-bold text-uppercase px-4 shadow-sm" style="border-radius: 4px; letter-spacing: 0.5px;">
+                                @(EditingProduct == null ? "Save Product" : "Update Details")
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public List<Products.InventoryItem> InventoryList { get; set; } = new();
+    [Parameter] public Products.ProductItem? EditingProduct { get; set; } // 🟢 Preloads for edit flows
+    [Parameter] public EventCallback<Products.ProductItem> OnSave { get; set; }
+
+    private Products.AddProductModel newProduct = new();
+    private int selectedInventoryId = 0;
+    private List<RecipeIngredientSelection> recipeIngredients = new();
+
+    protected override void OnParametersSet()
+    {
+        if (IsOpen)
+        {
+            if (EditingProduct == null)
+            {
+                // ADD FRESH OPERATION SETUP
+                newProduct = new Products.AddProductModel { Description = "Noodles", IsAvailableString = "true" };
+                recipeIngredients.Clear();
+            }
+            else
+            {
+                // EDIT CHOSEN ENTRY MODE OPERATION LOAD
+                newProduct = new Products.AddProductModel
+                {
+                    Name = EditingProduct.Name,
+                    Price = EditingProduct.Price,
+                    Description = EditingProduct.Description,
+                    IsAvailableString = EditingProduct.IsAvailable.ToString().ToLower()
+                };
+
+                recipeIngredients.Clear();
+                // Map out any items previously logged inside the entry recipe array
+                foreach (var ingName in EditingProduct.LinkedIngredients)
+                {
+                    recipeIngredients.Add(new RecipeIngredientSelection { Id = new Random().Next(200, 999), Name = ingName, IsActiveInRecipe = true });
+                }
+            }
+            selectedInventoryId = 0;
+        }
+    }
+
+    private void AddIngredientFromDropdown()
+    {
+        if (selectedInventoryId <= 0) return;
+        var inventoryItem = InventoryList.FirstOrDefault(i => i.Id == selectedInventoryId);
+        if (inventoryItem != null && !recipeIngredients.Any(r => r.Id == inventoryItem.Id))
+        {
+            recipeIngredients.Add(new RecipeIngredientSelection { Id = inventoryItem.Id, Name = inventoryItem.Name, IsActiveInRecipe = true });
+        }
+        selectedInventoryId = 0;
+    }
+
+    private async Task CloseModal() => await OnClose.InvokeAsync();
+
+    private async Task HandleValidSubmit()
+    {
+        var item = new Products.ProductItem
+        {
+            Name = newProduct.Name,
+            Price = newProduct.Price,
+            Description = newProduct.Description,
+            IsAvailable = bool.Parse(newProduct.IsAvailableString),
+            LinkedIngredients = recipeIngredients.Where(r => r.IsActiveInRecipe).Select(r => r.Name).ToList(),
+            CreatedAt = EditingProduct?.CreatedAt ?? DateTime.Now, // Keeps original timestamp if editing
+            ImageUrl = EditingProduct?.ImageUrl ?? "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=150"
+        };
+
+        await OnSave.InvokeAsync(item);
+    }
+
+    public class RecipeIngredientSelection
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public bool IsActiveInRecipe { get; set; }
+    }
+}
